@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Betting Calculator & Daily Ledger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .result-pos { color: #000000 !important; }
+    .result-neg { color: #dc2626 !important; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-3 md:p-6">
+  <div class="max-w-4xl mx-auto space-y-4">
+    
+    <!-- Header -->
+    <header class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap justify-between items-center gap-3">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-basketball text-orange-500"></i> NBA Odds & Bet Calculator
+        </h1>
+        <p class="text-xs text-slate-500">Auto-saves locally per date • Switch profiles seamlessly</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-600">Date:</label>
+        <input type="date" id="gameDate" class="border rounded-lg px-2.5 py-1.5 text-sm font-medium bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
+        <button id="clearDayBtn" class="text-xs px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 transition" title="Clear this day's entries">Clear</button>
+      </div>
+    </header>
+
+    <!-- Profile & Commission Multipliers Bar -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-user-tag text-blue-500"></i> Profile Rate:
+        </span>
+        <select id="profileSelect" class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none">
+          <option value="daniel">Daniel (Win: 0.91 | Loss: 0.99)</option>
+          <option value="linde">Linde (Win: 0.93 | Loss: 0.97)</option>
+          <option value="custom">Custom Multipliers</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-500 font-medium">Win Mult:</span>
+          <input type="number" id="winRateInput" step="0.01" min="0" max="2" value="0.91" class="w-16 p-1 text-center font-mono text-xs border rounded bg-slate-50 font-bold" disabled>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-500 font-medium">Loss Mult:</span>
+          <input type="number" id="lossRateInput" step="0.01" min="0" max="2" value="0.99" class="w-16 p-1 text-center font-mono text-xs border rounded bg-slate-50 font-bold" disabled>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inputs Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Odds Input -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Daily Odds Lines</label>
+          <span class="text-[11px] text-slate-400">Team with "+" is underdog</span>
+        </div>
+        <textarea id="oddsInput" rows="6" placeholder="Example:&#10;atl+2.5 @ orl&#10;mil+4.5 @ was&#10;cha @ bkn+1.5" class="w-full flex-1 p-2.5 text-sm font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+      </div>
+
+      <!-- Bets Input -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Bets Received</label>
+          <span class="text-[11px] text-slate-400">e.g. "om 5 cha 5 mh 5" (5 = 5,000)</span>
+        </div>
+        <textarea id="betsInput" rows="6" placeholder="Paste bet slips:&#10;om 5 mil 5 cha 5 mh 5 tor 5 uj 5 ind 5 dal 5 gs 5 por 5 lac 5" class="w-full flex-1 p-2.5 text-sm font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+      </div>
+    </div>
+
+    <!-- Actions & Scoreboard Sync -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <button id="fetchScoresBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Sync ESPN Scores
+        </button>
+        <span id="syncStatus" class="text-xs text-slate-500"></span>
+      </div>
+      <button id="calcBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow transition">
+        <i class="fa-solid fa-calculator"></i> Calculate Payouts
+      </button>
+    </div>
+
+    <!-- Games & Manual Score Editor -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs uppercase tracking-wider text-slate-600">
+        Active Games & Scores
+      </div>
+      <div id="gamesContainer" class="p-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <div class="text-xs text-slate-400 italic py-2">No odds entered yet.</div>
+      </div>
+    </div>
+
+    <!-- Settlement Output -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Settlement Summary</h2>
+      
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-4">
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <div class="text-[11px] text-slate-500 uppercase">Gross Winning Bets</div>
+          <div id="grossWin" class="text-base font-bold text-slate-800">₱0</div>
+          <div id="winMultTag" class="text-[10px] text-slate-400">Multiplier × 0.91</div>
+        </div>
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <div class="text-[11px] text-slate-500 uppercase">Total Winning Payout</div>
+          <div id="netWin" class="text-base font-bold text-slate-800">₱0</div>
+        </div>
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <div class="text-[11px] text-slate-500 uppercase">Gross Losing Bets</div>
+          <div id="grossLoss" class="text-base font-bold text-slate-800">₱0</div>
+          <div id="lossMultTag" class="text-[10px] text-slate-400">Multiplier × 0.99</div>
+        </div>
+        <div class="bg-slate-50 p-2.5 rounded-lg border">
+          <div class="text-[11px] text-slate-500 uppercase">Total Losing Deduct</div>
+          <div id="netLoss" class="text-base font-bold text-slate-800">₱0</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-50">
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Net Difference (Total Win - Total Loss):</div>
+          <div class="text-xs text-slate-400">Rule: Positive = Black | Negative = Red</div>
+        </div>
+        <div id="finalDiff" class="text-2xl font-black result-pos">
+          ₱0.00
+        </div>
+      </div>
+
+      <!-- Bet Breakdown List -->
+      <div class="mt-4">
+        <div class="text-xs font-bold text-slate-600 mb-2 uppercase">Individual Bet Breakdown</div>
+        <div id="betsBreakdown" class="divide-y divide-slate-100 text-xs max-h-56 overflow-y-auto">
+          <div class="text-slate-400 py-2 italic">Enter bets and press calculate to view breakdown.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ALIAS_MAP = {
+      'atl': 'ATL', 'hawks': 'ATL',
+      'bos': 'BOS', 'bc': 'BOS', 'celtics': 'BOS',
+      'bkn': 'BKN', 'nets': 'BKN', 'bk': 'BKN',
+      'cha': 'CHA', 'hornets': 'CHA',
+      'chi': 'CHI', 'bulls': 'CHI',
+      'cle': 'CLE', 'cavs': 'CLE',
+      'dal': 'DAL', 'mavs': 'DAL',
+      'den': 'DEN', 'nuggets': 'DEN',
+      'det': 'DET', 'pistons': 'DET',
+      'gsw': 'GSW', 'gs': 'GSW', 'warriors': 'GSW',
+      'hou': 'HOU', 'rockets': 'HOU',
+      'ind': 'IND', 'pacers': 'IND',
+      'lac': 'LAC', 'cl': 'LAC', 'clippers': 'LAC',
+      'lal': 'LAL', 'lak': 'LAL', 'lc': 'LAL', 'lakers': 'LAL',
+      'mem': 'MEM', 'mg': 'MEM', 'grizzlies': 'MEM',
+      'mia': 'MIA', 'mh': 'MIA', 'heat': 'MIA',
+      'mil': 'MIL', 'bucks': 'MIL',
+      'min': 'MIN', 'twolves': 'MIN', 'timberwolves': 'MIN',
+      'nop': 'NOP', 'no': 'NOP', 'pelicans': 'NOP',
+      'nyk': 'NYK', 'ny': 'NYK', 'knicks': 'NYK',
+      'okc': 'OKC', 'thunder': 'OKC',
+      'orl': 'ORL', 'om': 'ORL', 'magic': 'ORL',
+      'phi': 'PHI', 'sixers': 'PHI', '76ers': 'PHI',
+      'pho': 'PHO', 'phx': 'PHO', 'suns': 'PHO',
+      'por': 'POR', 'blazers': 'POR',
+      'sac': 'SAC', 'kings': 'SAC',
+      'sas': 'SAS', 'sa': 'SAS', 'spurs': 'SAS',
+      'tor': 'TOR', 'raptors': 'TOR',
+      'uta': 'UTA', 'uj': 'UTA', 'jazz': 'UTA',
+      'was': 'WAS', 'wizards': 'WAS'
+    };
+
+    const PROFILES = {
+      daniel: { win: 0.91, loss: 0.99 },
+      linde: { win: 0.93, loss: 0.97 }
+    };
+
+    function resolveTeam(raw) {
+      if (!raw) return null;
+      const clean = raw.toLowerCase().trim();
+      return ALIAS_MAP[clean] || clean.toUpperCase();
+    }
+
+    let state = {
+      profile: 'daniel',
+      winRate: 0.91,
+      lossRate: 0.99,
+      oddsText: '',
+      betsText: '',
+      scores: {}
+    };
+
+    const datePicker = document.getElementById('gameDate');
+    const profileSelect = document.getElementById('profileSelect');
+    const winRateInput = document.getElementById('winRateInput');
+    const lossRateInput = document.getElementById('lossRateInput');
+    const oddsInput = document.getElementById('oddsInput');
+    const betsInput = document.getElementById('betsInput');
+    const gamesContainer = document.getElementById('gamesContainer');
+    const syncStatus = document.getElementById('syncStatus');
+
+    function getStorageKey(date) {
+      return `nba_calc_data_${date}`;
+    }
+
+    function persistData() {
+      const curDate = datePicker.value;
+      if (!curDate) return;
+      state.oddsText = oddsInput.value;
+      state.betsText = betsInput.value;
+      state.profile = profileSelect.value;
+      state.winRate = parseFloat(winRateInput.value) || 0.91;
+      state.lossRate = parseFloat(lossRateInput.value) || 0.99;
+      localStorage.setItem(getStorageKey(curDate), JSON.stringify(state));
+      localStorage.setItem('nba_calc_last_active_date', curDate);
+    }
+
+    function loadDateData(date) {
+      const saved = localStorage.getItem(getStorageKey(date));
+      if (saved) {
+        try {
+          state = JSON.parse(saved);
+        } catch (e) {
+          state = { profile: 'daniel', winRate: 0.91, lossRate: 0.99, oddsText: '', betsText: '', scores: {} };
+        }
+      } else {
+        state = { profile: 'daniel', winRate: 0.91, lossRate: 0.99, oddsText: '', betsText: '', scores: {} };
+      }
+
+      profileSelect.value = state.profile || 'daniel';
+      applyProfileRates(profileSelect.value, state.winRate, state.lossRate);
+
+      oddsInput.value = state.oddsText || '';
+      betsInput.value = state.betsText || '';
+      renderGameBoxes();
+      calculate();
+    }
+
+    function applyProfileRates(profileKey, savedWin, savedLoss) {
+      if (profileKey === 'custom') {
+        winRateInput.disabled = false;
+        lossRateInput.disabled = false;
+        winRateInput.value = savedWin !== undefined ? savedWin : 0.91;
+        lossRateInput.value = savedLoss !== undefined ? savedLoss : 0.99;
+      } else {
+        winRateInput.disabled = true;
+        lossRateInput.disabled = true;
+        winRateInput.value = PROFILES[profileKey].win;
+        lossRateInput.value = PROFILES[profileKey].loss;
+      }
+      document.getElementById('winMultTag').textContent = `Multiplier × ${winRateInput.value}`;
+      document.getElementById('lossMultTag').textContent = `Multiplier × ${lossRateInput.value}`;
+    }
+
+    profileSelect.addEventListener('change', (e) => {
+      applyProfileRates(e.target.value);
+      persistData();
+      calculate();
+    });
+
+    winRateInput.addEventListener('input', () => {
+      document.getElementById('winMultTag').textContent = `Multiplier × ${winRateInput.value}`;
+      persistData();
+      calculate();
+    });
+
+    lossRateInput.addEventListener('input', () => {
+      document.getElementById('lossMultTag').textContent = `Multiplier × ${lossRateInput.value}`;
+      persistData();
+      calculate();
+    });
+
+    function parseOdds(text) {
+      const lines = text.split('\n');
+      const matches = [];
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+
+        const parts = line.split('@');
+        if (parts.length !== 2) return;
+
+        const left = parts[0].trim();
+        const right = parts[1].trim();
+
+        let awayTeam, awayPlus = 0, homeTeam, homePlus = 0;
+
+        if (left.includes('+')) {
+          const s = left.split('+');
+          awayTeam = resolveTeam(s[0]);
+          awayPlus = parseFloat(s[1]) || 0;
+        } else {
+          awayTeam = resolveTeam(left);
+        }
+
+        if (right.includes('+')) {
+          const s = right.split('+');
+          homeTeam = resolveTeam(s[0]);
+          homePlus = parseFloat(s[1]) || 0;
+        } else {
+          homeTeam = resolveTeam(right);
+        }
+
+        if (awayTeam && homeTeam) {
+          matches.push({ awayTeam, awayPlus, homeTeam, homePlus });
+        }
+      });
+      return matches;
+    }
+
+    function renderGameBoxes() {
+      const games = parseOdds(oddsInput.value);
+      if (games.length === 0) {
+        gamesContainer.innerHTML = '<div class="text-xs text-slate-400 italic py-2">No odds recognized. Enter odds lines above.</div>';
+        return;
+      }
+
+      gamesContainer.innerHTML = games.map(g => {
+        const awayScore = state.scores[g.awayTeam] ?? '';
+        const homeScore = state.scores[g.homeTeam] ?? '';
+        const awayLabel = g.awayPlus > 0 ? `${g.awayTeam} (+${g.awayPlus})` : g.awayTeam;
+        const homeLabel = g.homePlus > 0 ? `${g.homeTeam} (+${g.homePlus})` : g.homeTeam;
+
+        return `
+          <div class="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-xs text-slate-700">${awayLabel}</span>
+              <input type="number" data-team="${g.awayTeam}" value="${awayScore}" placeholder="0" class="score-input w-14 p-1 text-center font-mono text-xs border rounded bg-white">
+            </div>
+            <span class="text-xs text-slate-400 font-bold px-1">@</span>
+            <div class="flex items-center gap-2">
+              <input type="number" data-team="${g.homeTeam}" value="${homeScore}" placeholder="0" class="score-input w-14 p-1 text-center font-mono text-xs border rounded bg-white">
+              <span class="font-semibold text-xs text-slate-700">${homeLabel}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.score-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const team = e.target.getAttribute('data-team');
+          const val = e.target.value.trim();
+          if (val === '') {
+            delete state.scores[team];
+          } else {
+            state.scores[team] = parseInt(val, 10);
+          }
+          persistData();
+          calculate();
+        });
+      });
+    }
+
+    function parseBets(text) {
+      const tokens = text.trim().split(/\s+/);
+      const bets = [];
+      for (let i = 0; i < tokens.length; i += 2) {
+        if (i + 1 < tokens.length) {
+          const team = resolveTeam(tokens[i]);
+          const amt = parseFloat(tokens[i + 1]);
+          if (team && !isNaN(amt)) {
+            bets.push({ rawTeam: tokens[i], team, amount: amt * 1000 });
+          }
+        }
+      }
+      return bets;
+    }
+
+    function calculate() {
+      const games = parseOdds(oddsInput.value);
+      const bets = parseBets(betsInput.value);
+      
+      const teamStatus = {};
+
+      games.forEach(g => {
+        const sAway = state.scores[g.awayTeam];
+        const sHome = state.scores[g.homeTeam];
+
+        if (sAway !== undefined && sHome !== undefined && !isNaN(sAway) && !isNaN(sHome)) {
+          let adjustedAway = sAway;
+          let adjustedHome = sHome;
+
+          if (g.awayPlus > 0) adjustedAway += g.awayPlus;
+          if (g.homePlus > 0) adjustedHome += g.homePlus;
+
+          if (adjustedAway > adjustedHome) {
+            teamStatus[g.awayTeam] = 'WIN';
+            teamStatus[g.homeTeam] = 'LOSS';
+          } else if (adjustedHome > adjustedAway) {
+            teamStatus[g.homeTeam] = 'WIN';
+            teamStatus[g.awayTeam] = 'LOSS';
+          } else {
+            teamStatus[g.awayTeam] = 'PUSH';
+            teamStatus[g.homeTeam] = 'PUSH';
+          }
+        }
+      });
+
+      let grossWin = 0;
+      let grossLoss = 0;
+      let breakdownHtml = '';
+
+      bets.forEach(b => {
+        const outcome = teamStatus[b.team] || 'PENDING';
+        let statusBadge = '<span class="text-slate-400 font-semibold">PENDING</span>';
+
+        if (outcome === 'WIN') {
+          grossWin += b.amount;
+          statusBadge = '<span class="text-emerald-600 font-bold">WON</span>';
+        } else if (outcome === 'LOSS') {
+          grossLoss += b.amount;
+          statusBadge = '<span class="text-rose-600 font-bold">LOST</span>';
+        } else if (outcome === 'PUSH') {
+          statusBadge = '<span class="text-amber-500 font-bold">PUSH (TIE)</span>';
+        }
+
+        breakdownHtml += `
+          <div class="flex justify-between py-1.5 border-b border-slate-100 items-center">
+            <span class="font-mono font-medium">${b.rawTeam.toUpperCase()} (${b.team}) - ₱${b.amount.toLocaleString()}</span>
+            <div>${statusBadge}</div>
+          </div>
+        `;
+      });
+
+      document.getElementById('betsBreakdown').innerHTML = breakdownHtml || '<div class="text-slate-400 py-2 italic">No bets found.</div>';
+
+      const winMultiplier = parseFloat(winRateInput.value) || 0;
+      const lossMultiplier = parseFloat(lossRateInput.value) || 0;
+
+      const netWin = grossWin * winMultiplier;
+      const netLoss = grossLoss * lossMultiplier;
+      const netDiff = netWin - netLoss;
+
+      document.getElementById('grossWin').textContent = `₱${grossWin.toLocaleString()}`;
+      document.getElementById('netWin').textContent = `₱${netWin.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('grossLoss').textContent = `₱${grossLoss.toLocaleString()}`;
+      document.getElementById('netLoss').textContent = `₱${netLoss.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+      const diffElem = document.getElementById('finalDiff');
+      diffElem.textContent = (netDiff < 0 ? '-' : '+') + `₱${Math.abs(netDiff).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      
+      if (netDiff >= 0) {
+        diffElem.className = 'text-2xl font-black result-pos';
+      } else {
+        diffElem.className = 'text-2xl font-black result-neg';
+      }
+    }
+
+    oddsInput.addEventListener('input', () => {
+      persistData();
+      renderGameBoxes();
+      calculate();
+    });
+
+    betsInput.addEventListener('input', () => {
+      persistData();
+      calculate();
+    });
+
+    document.getElementById('calcBtn').addEventListener('click', calculate);
+
+    datePicker.addEventListener('change', (e) => {
+      loadDateData(e.target.value);
+    });
+
+    document.getElementById('clearDayBtn').addEventListener('click', () => {
+      if (confirm(`Clear all saved bets and odds for ${datePicker.value}?`)) {
+        localStorage.removeItem(getStorageKey(datePicker.value));
+        loadDateData(datePicker.value);
+      }
+    });
+
+    document.getElementById('fetchScoresBtn').addEventListener('click', async () => {
+      const d = datePicker.value.replace(/-/g, '');
+      if (!d) return;
+      syncStatus.textContent = 'Syncing...';
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${d}`);
+        const data = await res.json();
+        
+        let found = 0;
+        data.events?.forEach(ev => {
+          const comp = ev.competitions?.[0];
+          comp?.competitors?.forEach(c => {
+            const teamAbbr = c.team?.abbreviation?.toUpperCase();
+            const score = parseInt(c.score, 10);
+            if (teamAbbr && !isNaN(score)) {
+              state.scores[teamAbbr] = score;
+              found++;
+            }
+          });
+        });
+
+        persistData();
+        renderGameBoxes();
+        calculate();
+        syncStatus.textContent = `Updated (${found} teams synced)`;
+      } catch (err) {
+        syncStatus.textContent = 'ESPN API unavailable. Enter scores manually.';
+      }
+      setTimeout(() => syncStatus.textContent = '', 4000);
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const lastActiveDate = localStorage.getItem('nba_calc_last_active_date') || new Date().toISOString().split('T')[0];
+      datePicker.value = lastActiveDate;
+      loadDateData(lastActiveDate);
+    });
+  </script>
+</body>
+</html>
